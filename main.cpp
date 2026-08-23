@@ -4,6 +4,8 @@
 #include <vector>
 #include <windows.h>
 #include <ctime>
+#include <fstream>
+#include <string>
 
 using namespace std;
 
@@ -17,25 +19,53 @@ public:
 
     Map()
     {
-        for(int y = 0; y < height; y++)
-        {
-            for(int x = 0; x < width; x++)
-            {
-                if(x == 0 || x == width - 1 ||
-                   y == 0 || y == height - 1)
-                {
-                    tiles[y][x] = '#';
-                }
-                else
-                {
-                    tiles[y][x] = ' ';
-                }
-            }
-        }
+        loadFromFile("map.txt");
     }
 
-    bool isWall(int x, int y)
+    bool loadFromFile(const string& filename)
     {
+        ifstream file(filename);
+
+        if(!file)
+        {
+            return false;
+        }
+
+        string line;
+
+        for(int y = 0; y < height; y++)
+        {
+            if(!getline(file, line))
+            {
+                return false;
+            }
+
+            if(!line.empty() && line.back() == '\r')
+            {
+                line.pop_back();
+            }
+
+            if(line.length() != static_cast<size_t>(width))
+            {
+                return false;
+            }
+
+            for(int x = 0; x < width; x++)
+            {
+                tiles[y][x] = line[x];
+            }
+        }
+
+        return true;
+    }
+
+    bool isWall(int x, int y) const
+    {
+        if(x < 0 || x >= width || y < 0 || y >= height)
+        {
+            return true;
+        }
+
         return tiles[y][x] == '#';
     }
 };
@@ -62,27 +92,34 @@ public:
         direction = 'd';
     }
 
-    bool move(Map& map)
+    bool move(const Map& map)
     {
         int newX = body[0].first;
         int newY = body[0].second;
 
         if(direction == 'w')
+        {
             newY--;
-
+        }
         else if(direction == 's')
+        {
             newY++;
-
+        }
         else if(direction == 'a')
+        {
             newX--;
-
+        }
         else if(direction == 'd')
+        {
             newX++;
+        }
 
         if(map.isWall(newX, newY))
+        {
             return false;
+        }
 
-        for(int i = body.size() - 1; i > 0; i--)
+        for(int i = static_cast<int>(body.size()) - 1; i > 0; i--)
         {
             body[i] = body[i - 1];
         }
@@ -95,16 +132,21 @@ public:
     void changeDirection(char input)
     {
         if(input == 'w' && direction != 's')
+        {
             direction = 'w';
-
+        }
         else if(input == 's' && direction != 'w')
+        {
             direction = 's';
-
+        }
         else if(input == 'a' && direction != 'd')
+        {
             direction = 'a';
-
+        }
         else if(input == 'd' && direction != 'a')
+        {
             direction = 'd';
+        }
     }
 
     void grow()
@@ -114,10 +156,12 @@ public:
 
     bool hitSelf()
     {
-        for(int i = 1; i < body.size(); i++)
+        for(size_t i = 1; i < body.size(); i++)
         {
             if(body[0] == body[i])
+            {
                 return true;
+            }
         }
 
         return false;
@@ -147,6 +191,12 @@ public:
 
             validPosition = true;
 
+            if(map.isWall(x, y))
+            {
+                validPosition = false;
+                continue;
+            }
+
             for(const auto& segment : snake.body)
             {
                 if(segment.first == x && segment.second == y)
@@ -171,6 +221,13 @@ public:
 
     Game()
     {
+        if(!map.loadFromFile("map.txt"))
+        {
+            cout << "Error: Could not load map.txt\n";
+            cout << "Make sure map.txt exists in the game folder.\n";
+            exit(1);
+        }
+
         food.respawn(snake, map);
     }
 
@@ -179,14 +236,14 @@ public:
         HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 
         CONSOLE_CURSOR_INFO cursorInfo;
+
         GetConsoleCursorInfo(console, &cursorInfo);
+
         cursorInfo.bVisible = false;
+
         SetConsoleCursorInfo(console, &cursorInfo);
 
-        COORD position;
-        position.X = 0;
-        position.Y = 0;
-        SetConsoleCursorPosition(console, position);
+        moveCursorToTop();
     }
 
     void moveCursorToTop()
@@ -194,6 +251,7 @@ public:
         HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
 
         COORD position;
+
         position.X = 0;
         position.Y = 0;
 
@@ -222,7 +280,7 @@ public:
             {
                 bool snakePart = false;
 
-                for(int i = 0; i < snake.body.size(); i++)
+                for(size_t i = 0; i < snake.body.size(); i++)
                 {
                     if(snake.body[i].first == x &&
                        snake.body[i].second == y)
@@ -230,9 +288,13 @@ public:
                         snakePart = true;
 
                         if(i == 0)
+                        {
                             cout << "@";
+                        }
                         else
+                        {
                             cout << "o";
+                        }
 
                         break;
                     }
@@ -241,9 +303,13 @@ public:
                 if(!snakePart)
                 {
                     if(x == food.x && y == food.y)
+                    {
                         cout << "*";
+                    }
                     else
+                    {
                         cout << map.tiles[y][x];
+                    }
                 }
             }
 
@@ -264,7 +330,9 @@ public:
             char input = _getch();
 
             if(input == 'q')
+            {
                 exit(0);
+            }
 
             snake.changeDirection(input);
         }
@@ -276,6 +344,7 @@ public:
            snake.body[0].second == food.y)
         {
             snake.grow();
+
             score++;
 
             food.respawn(snake, map);
@@ -287,6 +356,7 @@ public:
         while(!gameOver)
         {
             draw();
+
             input();
 
             if(!snake.move(map))
@@ -314,9 +384,12 @@ public:
         cout << "================================\n";
         cout << "           GAME OVER\n";
         cout << "================================\n\n";
+
         cout << "Score: " << score << "\n\n";
+
         cout << "R = Restart\n";
         cout << "Q = Quit\n";
+
         cout.flush();
     }
 
@@ -354,6 +427,7 @@ int main()
     srand(static_cast<unsigned int>(time(0)));
 
     Game game;
+
     game.run();
 
     return 0;
