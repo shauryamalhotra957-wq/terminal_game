@@ -1,0 +1,8 @@
+# Generated executables and compiler output
+main
+main.exe
+*.o
+*.obj
+*.pdb
+*.ilk
+*.exe.stackdump
