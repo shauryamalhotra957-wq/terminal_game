@@ -165,20 +165,13 @@ This project implements three layers of resilience in [`PathUtils.hpp`](PathUtil
 ## 🚀 Building & Running
 
 ### Option 1: Run the Prebuilt Windows Release (No Compiler Needed)
-The project includes a fully standalone 64-bit Windows release located in:
-```text
-dist/TerminalGame-Windows-x64/
- ├── TerminalGame.exe      (standalone 64-bit release executable)
- ├── map.txt               (customizable map layout)
- └── README_RUN.txt        (quick start instructions)
-```
-Or download/extract `dist/TerminalGame-Windows-x64.zip`.
 
-* **To play:** Double-click `TerminalGame.exe` or run it from Command Prompt / PowerShell:
-  ```powershell
-  .\TerminalGame.exe
-  ```
-* **Runtime verification:** Statically linked against GCC and C++ runtimes (`-static -static-libgcc -static-libstdc++`). Requires only standard Windows 10/11 system DLLs (`KERNEL32.dll` and Universal CRT `ucrtbase.dll`).
+Download the Windows x64 package from the published [GitHub Release v1.0.0](https://github.com/shauryamalhotra957-wq/terminal_game/releases/tag/v1.0.0): [**TerminalGame-Windows-x64.zip**](https://github.com/shauryamalhotra957-wq/terminal_game/releases/download/v1.0.0/TerminalGame-Windows-x64.zip).
+
+After extracting the ZIP, open the `TerminalGame-Windows-x64` folder. It contains `TerminalGame.exe`, `map.txt` (optional custom map), and `README_RUN.txt`.
+
+- **To play:** Double-click `TerminalGame.exe`, or launch it from Command Prompt / PowerShell.
+- **Runtime note:** The release is statically linked against GCC and C++ runtimes (`-static -static-libgcc -static-libstdc++`). It still uses standard Windows system components such as Kernel32 and the Universal C Runtime.
 
 ---
 
@@ -197,7 +190,7 @@ make run
 # Run the automated test suite
 make test
 
-# Build release executable
+# Build the release executable in the repository root
 make release
 
 # Clean build artifacts
