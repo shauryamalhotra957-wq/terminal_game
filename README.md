@@ -29,7 +29,7 @@ The player controls a snake inside a bounded 30×10 console map.
 * **Paradigm:** Object-Oriented Programming (OOP)
 * **Compiler:** MinGW-w64 / GCC (UCRT64), Clang, or MSVC
 * **Standard Library:** `<iostream>`, `<vector>`, `<string>`, `<fstream>`, `<memory>`, `<utility>`, `<cstdlib>`, `<ctime>`
-* **Verified Platform:** Windows 10 & Windows 11 (64-bit), with portable POSIX terminal support for Linux/macOS
+* **Verified Platform:** Windows x64 build; locally checked on Windows 11 and built/tested by GitHub Actions on `windows-latest`. A POSIX console implementation is included, but Linux/macOS have not been verified for this release.
 
 ---
 
@@ -41,7 +41,7 @@ Abstraction means hiding complex, platform-specific implementation details behin
 
 In this project, console operations such as hiding the cursor, moving cursor coordinates, non-blocking key hit detection, and sleeping vary drastically between operating systems (Win32 Console API vs. Unix `termios` & ANSI escape codes).
 
-Instead of embedding Windows-specific functions directly inside the `Game` class, we defined an **abstract base class** [`IConsole`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/IConsole.hpp) with pure virtual functions (`= 0`):
+Instead of embedding Windows-specific functions directly inside the `Game` class, we defined an **abstract base class** [`IConsole`](IConsole.hpp) with pure virtual functions (`= 0`):
 
 ```cpp
 class IConsole
@@ -100,9 +100,9 @@ public:
 The project utilizes **runtime polymorphism** through C++ virtual method dispatch:
 
 * Concrete derived classes implement `IConsole`:
-  * [`WindowsConsole`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/WindowsConsole.hpp): Encapsulates `GetStdHandle()`, `SetConsoleCursorPosition()`, `SetConsoleCursorInfo()`, `_kbhit()`, `_getch()`, and `Sleep()`.
-  * [`PosixConsole`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/PosixConsole.hpp): Encapsulates POSIX `termios` raw mode, `select()`, and ANSI escape codes (`\033[H`, `\033[?25l`).
-  * [`MockConsole`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/tests.cpp): Simulates scripted input queues and records console operations for headless automated tests.
+  * [`WindowsConsole`](WindowsConsole.hpp): Encapsulates `GetStdHandle()`, `SetConsoleCursorPosition()`, `SetConsoleCursorInfo()`, `_kbhit()`, `_getch()`, and `Sleep()`.
+  * [`PosixConsole`](PosixConsole.hpp): Encapsulates POSIX `termios` raw mode, `select()`, and ANSI escape codes (`\033[H`, `\033[?25l`).
+  * [`MockConsole`](tests.cpp): Simulates scripted input queues and records console operations for headless automated tests.
 * The `Game` class holds a polymorphic pointer `IConsole* console` received via **Dependency Injection**.
 * At runtime, calls like `console->isKeyAvailable()` or `console->moveCursorToTop()` dynamically resolve to the appropriate concrete implementation through the vtable.
 
@@ -119,19 +119,19 @@ game.run();
 
 Each component encapsulates its internal state using `private` data members and exposes strictly validated `public` methods:
 
-* **[`Map`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Map.hpp):**
+* **[`Map`](Map.hpp):**
   * Private 2D array `tiles[10][30]` and dimensions `width`, `height`.
   * Read access through `isWall(x, y)` and `getTile(x, y)`.
   * Protects against out-of-bounds array access by returning wall boundaries for invalid coordinates.
   * Encapsulates safe file loading with automatic fallback to an embedded 30×10 default map.
-* **[`Snake`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Snake.hpp):**
+* **[`Snake`](Snake.hpp):**
   * Private segment list `std::vector<std::pair<int, int>> body` and `char direction`.
   * State transitions occur strictly through `move(map)`, `changeDirection(input)`, `grow()`, and `hitSelf()`.
   * Prevents illegal 180-degree reversals (e.g., turning `A` when traveling `D`).
-* **[`Food`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Food.hpp):**
+* **[`Food`](Food.hpp):**
   * Private coordinates `(x, y)`.
   * Random respawn logic verifies that food is never placed on walls or on the snake's body segments.
-* **[`Game`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Game.hpp):**
+* **[`Game`](Game.hpp):**
   * Coordinates the game loop, user interactions, score management, and game over screens.
 
 ---
@@ -154,7 +154,7 @@ Game
 
 In standard console projects, hardcoded relative paths like `"map.txt"` cause crashes if the program is double-clicked or executed from a different working directory.
 
-This project implements three layers of resilience in [`PathUtils.hpp`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/PathUtils.hpp) and [`Map.hpp`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Map.hpp):
+This project implements three layers of resilience in [`PathUtils.hpp`](PathUtils.hpp) and [`Map.hpp`](Map.hpp):
 1. **Current Working Directory Check:** Attempts to open `"map.txt"` in the current working directory.
 2. **Executable-Relative Path Resolution:** Uses platform APIs (`GetModuleFileNameA` on Windows, `readlink("/proc/self/exe")` on Linux) to resolve `"map.txt"` sitting beside the executable binary.
 3. **Safe Embedded Default Fallback:** If `map.txt` is missing, unreadable, or contains invalid dimensions (not exactly 10 lines of 30 characters), `Map` gracefully falls back to a hardcoded built-in 30×10 map. The game **never crashes**.
@@ -184,7 +184,7 @@ Or download/extract `dist/TerminalGame-Windows-x64.zip`.
 
 ### Option 2: Build from Source (Development)
 
-Prerequisites: A C++17 compiler (such as MinGW-w64 GCC, Clang, or MSVC) and `make` (optional).
+Prerequisites: A C++17 compiler. The commands below assume GCC/MinGW-w64 and `make` (optional); MSVC users need the corresponding Visual Studio build configuration or compiler command.
 
 #### Using Make:
 ```bash
@@ -221,8 +221,8 @@ g++ -std=c++17 -Wall -Wextra tests.cpp -o tests.exe
 | Environment / Check | Status | Verification Details |
 | :--- | :---: | :--- |
 | **Windows 11 x64 (Local)** | **VERIFIED** | Compiled with GCC 16.1.0 UCRT64 (`-std=c++17 -Wall -Wextra`). |
-| **Windows 10 x64** | **VERIFIED** | Binary linked to Universal CRT and Kernel32 without MinGW DLL dependencies. |
-| **Automated Test Suite** | **VERIFIED** | 267/267 assertions passed in [`tests.cpp`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/tests.cpp). |
+| **Windows 10 x64** | **NOT SEPARATELY TESTED** | The release targets x64 Windows; verify it on the actual target machine before claiming Windows 10 compatibility. |
+| **Automated Test Suite** | **VERIFIED** | 267/267 assertions passed in [`tests.cpp`](tests.cpp). |
 | **Resource Fallback** | **VERIFIED** | Verified launching from root `C:\` and with corrupted/missing `map.txt`. |
 | **CI Automation** | **CONFIGURED** | GitHub Actions workflow compiles and runs tests on push/PR (`windows-latest`). |
 
