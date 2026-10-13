@@ -1,8 +1,16 @@
 # Generated executables and compiler output
 main
 main.exe
+tests
+tests.exe
+TerminalGame.exe
+*.exe
 *.o
 *.obj
 *.pdb
 *.ilk
 *.exe.stackdump
+
+# Distribution and package artifacts
+dist/
+dist/*

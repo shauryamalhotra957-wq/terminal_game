@@ -23,6 +23,8 @@ jobs:
             mingw-w64-ucrt-x86_64-gcc
             make
 
-      - name: Compile
+      - name: Compile and Run Tests
         shell: msys2 {0}
-        run: make
+        run: |
+          make
+          make test

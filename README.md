@@ -1,538 +1,248 @@
-# 🐍 Snake Game — C++ OOP Project
+# 🐍 Snake Game — C++ OOP Abstraction & Architecture
 
-A console-based **Snake Game built in C++** as a practical implementation of the fundamental concepts of **Object-Oriented Programming (OOP)** covered in **UTA018 – Object Oriented Programming in C++**.
+A console-based **Snake Game built in C++** as a practical implementation of fundamental and advanced **Object-Oriented Programming (OOP)** concepts for **UTA018 – Object Oriented Programming in C++**.
 
-The project was designed to go beyond simply learning OOP syntax by applying concepts such as **classes, objects, encapsulation, constructors, member functions, composition, vectors, references, and object interaction** in a complete working application.
+The project demonstrates real-world software design by decoupling game logic from platform-specific hardware/OS APIs using **pure OOP Abstraction, Runtime Polymorphism, Encapsulation, Composition, and Dependency Injection**.
 
 ---
 
 ## 🎮 Game Overview
 
-The player controls a snake inside a bounded console map.
+The player controls a snake inside a bounded 30×10 console map.
 
-### Objective
-
-* Move the snake using **W, A, S, D**
-* Eat food represented by `*`
-* Grow the snake after eating food
-* Increase the score
-* Avoid hitting the walls
-* Avoid colliding with the snake's own body
-* Press `Q` to quit
-* Press `R` after Game Over to restart
-
----
-
-## 🛠️ Technologies Used
-
-* **Language:** C++
-* **Paradigm:** Object-Oriented Programming
-* **Compiler:** MinGW / G++
-* **Platform:** Windows
-* **Libraries:**
-
-  * `<iostream>`
-  * `<vector>`
-  * `<cstdlib>`
-  * `<ctime>`
-  * `<conio.h>`
-  * `<windows.h>`
+### Rules & Objectives
+* Move the snake using **W, A, S, D** (or lowercase/uppercase inputs).
+* Eat food represented by `*`.
+* Grow the snake each time food is eaten.
+* Score points (`+1` per food consumed).
+* Avoid colliding with boundary walls (`#`).
+* Avoid colliding with the snake's own body (`o` segments).
+* Direct 180-degree reverse inputs are rejected to prevent immediate self-collisions.
+* Press `Q` to exit cleanly at any time (restoring the console cursor).
+* Press `R` after Game Over to restart the session.
 
 ---
 
-# 🧠 OOP Concepts Implemented
+## 🛠️ Technologies & Toolchain
 
-The main purpose of this project was to understand how OOP concepts can be used to structure an actual program.
+* **Language:** C++17
+* **Paradigm:** Object-Oriented Programming (OOP)
+* **Compiler:** MinGW-w64 / GCC (UCRT64), Clang, or MSVC
+* **Standard Library:** `<iostream>`, `<vector>`, `<string>`, `<fstream>`, `<memory>`, `<utility>`, `<cstdlib>`, `<ctime>`
+* **Verified Platform:** Windows 10 & Windows 11 (64-bit), with portable POSIX terminal support for Linux/macOS
 
-## 1. Classes and Objects
+---
 
-The game is divided into multiple classes, each responsible for a specific part of the system.
+# 🧠 Core OOP Concepts Implemented
+
+### 1. Genuine Abstraction (`IConsole`)
+
+Abstraction means hiding complex, platform-specific implementation details behind a clean, high-level interface.
+
+In this project, console operations such as hiding the cursor, moving cursor coordinates, non-blocking key hit detection, and sleeping vary drastically between operating systems (Win32 Console API vs. Unix `termios` & ANSI escape codes).
+
+Instead of embedding Windows-specific functions directly inside the `Game` class, we defined an **abstract base class** [`IConsole`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/IConsole.hpp) with pure virtual functions (`= 0`):
 
 ```cpp
-class Map
+class IConsole
 {
-    ...
-};
+public:
+    virtual ~IConsole() = default;
 
-class Snake
-{
-    ...
-};
+    // Lifecycle
+    virtual void init() = 0;
+    virtual void restore() = 0;
 
-class Food
-{
-    ...
-};
+    // Cursor management
+    virtual void moveCursorToTop() = 0;
+    virtual void setCursorPosition(int x, int y) = 0;
+    virtual void setCursorVisible(bool visible) = 0;
 
-class Game
-{
-    ...
+    // Non-blocking keyboard input
+    virtual bool isKeyAvailable() = 0;
+    virtual char readKey() = 0;
+
+    // Timing and rendering
+    virtual void sleepMs(int milliseconds) = 0;
+    virtual void clearScreen() = 0;
 };
 ```
 
-Objects are then created from these classes:
+#### Why This Is Genuine Abstraction
+1. **Interface Contract:** `IConsole` defines *what* operations are required, with zero knowledge of *how* they are executed.
+2. **Complete Decoupling:** The `Game` class contains no references to `<windows.h>`, `<conio.h>`, `_kbhit()`, `_getch()`, or Win32 handles.
+3. **Hardware Isolation:** All operating-system calls are isolated inside concrete derived classes.
 
-```cpp
-Game game;
+```text
+               ┌──────────────────────┐
+               │        Game          │
+               └──────────┬───────────┘
+                          │ depends on (Dependency Injection)
+                          ▼
+               ┌──────────────────────┐
+               │    <<interface>>     │
+               │       IConsole       │
+               └──────────┬───────────┘
+                          │
+         ┌────────────────┼────────────────┐
+         │ (implements)   │ (implements)   │ (implements)
+         ▼                ▼                ▼
+┌─────────────────┐ ┌─────────────┐ ┌─────────────┐
+│ WindowsConsole  │ │PosixConsole │ │ MockConsole │
+│ (Win32 Console) │ │(Linux/macOS)│ │(Unit Tests) │
+└─────────────────┘ └─────────────┘ └─────────────┘
 ```
-
-This allows the game to be represented as a collection of interacting objects instead of one large procedural program.
 
 ---
 
-## 2. Encapsulation
+### 2. Runtime Polymorphism
 
-Each class contains the data and operations associated with that particular component.
+The project utilizes **runtime polymorphism** through C++ virtual method dispatch:
 
-For example, the `Snake` class contains:
-
-```cpp
-vector<pair<int, int>> body;
-char direction;
-```
-
-along with functions that operate on the snake:
+* Concrete derived classes implement `IConsole`:
+  * [`WindowsConsole`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/WindowsConsole.hpp): Encapsulates `GetStdHandle()`, `SetConsoleCursorPosition()`, `SetConsoleCursorInfo()`, `_kbhit()`, `_getch()`, and `Sleep()`.
+  * [`PosixConsole`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/PosixConsole.hpp): Encapsulates POSIX `termios` raw mode, `select()`, and ANSI escape codes (`\033[H`, `\033[?25l`).
+  * [`MockConsole`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/tests.cpp): Simulates scripted input queues and records console operations for headless automated tests.
+* The `Game` class holds a polymorphic pointer `IConsole* console` received via **Dependency Injection**.
+* At runtime, calls like `console->isKeyAvailable()` or `console->moveCursorToTop()` dynamically resolve to the appropriate concrete implementation through the vtable.
 
 ```cpp
-move()
-changeDirection()
-grow()
-hitSelf()
-reset()
+// Instantiation at runtime (Dependency Injection)
+auto console = std::make_unique<PlatformConsole>();
+Game game(console.get()); // Game accepts IConsole*
+game.run();
 ```
-
-Similarly, the `Food` class manages its own position and spawning logic.
-
-This keeps related data and functionality together.
 
 ---
 
-## 3. Constructors
+### 3. Encapsulation & Separation of Concerns
 
-Constructors are used to automatically initialize objects when they are created.
+Each component encapsulates its internal state using `private` data members and exposes strictly validated `public` methods:
 
-For example:
-
-```cpp
-Snake()
-{
-    reset();
-}
-```
-
-and:
-
-```cpp
-Game()
-{
-    food.respawn(snake, map);
-}
-```
-
-The `Map` constructor also initializes the complete game board.
-
-This demonstrates how constructors can establish the initial state of objects.
+* **[`Map`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Map.hpp):**
+  * Private 2D array `tiles[10][30]` and dimensions `width`, `height`.
+  * Read access through `isWall(x, y)` and `getTile(x, y)`.
+  * Protects against out-of-bounds array access by returning wall boundaries for invalid coordinates.
+  * Encapsulates safe file loading with automatic fallback to an embedded 30×10 default map.
+* **[`Snake`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Snake.hpp):**
+  * Private segment list `std::vector<std::pair<int, int>> body` and `char direction`.
+  * State transitions occur strictly through `move(map)`, `changeDirection(input)`, `grow()`, and `hitSelf()`.
+  * Prevents illegal 180-degree reversals (e.g., turning `A` when traveling `D`).
+* **[`Food`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Food.hpp):**
+  * Private coordinates `(x, y)`.
+  * Random respawn logic verifies that food is never placed on walls or on the snake's body segments.
+* **[`Game`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Game.hpp):**
+  * Coordinates the game loop, user interactions, score management, and game over screens.
 
 ---
 
-## 4. Composition
+### 4. Composition
 
-The `Game` class contains objects of other classes:
-
-```cpp
-Map map;
-Snake snake;
-Food food;
-```
-
-This is an important OOP relationship.
-
-Instead of putting everything inside one class, the game is composed of several specialized objects.
-
-Conceptually:
+The `Game` class demonstrates object composition by owning and coordinating instances of `Map`, `Snake`, and `Food`:
 
 ```text
 Game
- ├── Map
- ├── Snake
- └── Food
+ ├── Map    (manages boundaries, tiles, fallback layouts)
+ ├── Snake  (manages movement, segments, self-collision)
+ ├── Food   (manages food position and safe spawning)
+ └── IConsole* (abstract console interface)
 ```
-
-The `Game` object coordinates the interaction between these components.
 
 ---
 
-## 5. Member Functions
+## 📦 Portability & Resilient Resource Handling
 
-The behavior of each object is implemented through member functions.
+In standard console projects, hardcoded relative paths like `"map.txt"` cause crashes if the program is double-clicked or executed from a different working directory.
 
-### Snake
-
-```cpp
-move()
-changeDirection()
-grow()
-hitSelf()
-reset()
-```
-
-### Food
-
-```cpp
-respawn()
-```
-
-### Game
-
-```cpp
-draw()
-input()
-checkFood()
-play()
-gameOverScreen()
-resetGame()
-run()
-```
-
-This demonstrates how object behavior can be encapsulated within the class that owns the relevant data.
+This project implements three layers of resilience in [`PathUtils.hpp`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/PathUtils.hpp) and [`Map.hpp`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/Map.hpp):
+1. **Current Working Directory Check:** Attempts to open `"map.txt"` in the current working directory.
+2. **Executable-Relative Path Resolution:** Uses platform APIs (`GetModuleFileNameA` on Windows, `readlink("/proc/self/exe")` on Linux) to resolve `"map.txt"` sitting beside the executable binary.
+3. **Safe Embedded Default Fallback:** If `map.txt` is missing, unreadable, or contains invalid dimensions (not exactly 10 lines of 30 characters), `Map` gracefully falls back to a hardcoded built-in 30×10 map. The game **never crashes**.
+4. **Clean Exit & Terminal Restoration:** When the player presses `Q`, the game breaks out of loops naturally and calls `console->restore()`, restoring the cursor and terminal properties.
 
 ---
 
-## 6. Objects Communicating With Each Other
+## 🚀 Building & Running
 
-The classes interact with one another.
-
-For example:
-
-```cpp
-snake.move(map);
-```
-
-The `Snake` object receives a reference to the `Map` object so that it can determine whether its next position is a wall.
-
-Similarly:
-
-```cpp
-food.respawn(snake, map);
-```
-
-The `Food` object receives information about the snake and map to generate a valid food position.
-
-This demonstrates practical object-to-object communication.
-
----
-
-## 7. References
-
-References are used to avoid unnecessary copying of objects.
-
-For example:
-
-```cpp
-bool move(Map& map)
-```
-
-and:
-
-```cpp
-void respawn(const Snake& snake, const Map& map)
-```
-
-The `&` allows the function to work with the existing object.
-
-`const` is also used when the function should not modify the object:
-
-```cpp
-const Snake& snake
-const Map& map
-```
-
-This improves both efficiency and safety.
-
----
-
-## 8. STL Vector
-
-The snake's body is dynamically sized because the snake grows whenever it eats food.
-
-Therefore, the project uses:
-
-```cpp
-vector<pair<int, int>> body;
-```
-
-Each pair represents:
-
+### Option 1: Run the Prebuilt Windows Release (No Compiler Needed)
+The project includes a fully standalone 64-bit Windows release located in:
 ```text
-(x, y)
+dist/TerminalGame-Windows-x64/
+ ├── TerminalGame.exe      (standalone 64-bit release executable)
+ ├── map.txt               (customizable map layout)
+ └── README_RUN.txt        (quick start instructions)
 ```
+Or download/extract `dist/TerminalGame-Windows-x64.zip`.
 
-coordinates of a snake segment.
-
-When the snake grows:
-
-```cpp
-body.push_back(body.back());
-```
-
-This demonstrates practical use of the C++ Standard Template Library.
+* **To play:** Double-click `TerminalGame.exe` or run it from Command Prompt / PowerShell:
+  ```powershell
+  .\TerminalGame.exe
+  ```
+* **Runtime verification:** Statically linked against GCC and C++ runtimes (`-static -static-libgcc -static-libstdc++`). Requires only standard Windows 10/11 system DLLs (`KERNEL32.dll` and Universal CRT `ucrtbase.dll`).
 
 ---
 
-# 🏗️ Project Architecture
+### Option 2: Build from Source (Development)
 
-The project follows a simple object-oriented architecture.
+Prerequisites: A C++17 compiler (such as MinGW-w64 GCC, Clang, or MSVC) and `make` (optional).
 
-```text
-                 ┌─────────────┐
-                 │    Game     │
-                 └──────┬──────┘
-                        │
-          ┌─────────────┼─────────────┐
-          │             │             │
-          ▼             ▼             ▼
-     ┌─────────┐   ┌─────────┐   ┌─────────┐
-     │   Map   │   │  Snake  │   │  Food   │
-     └─────────┘   └─────────┘   └─────────┘
-          │             │             │
-          └─────────────┼─────────────┘
-                        ▼
-                  Game Logic
-```
-
-### Responsibilities
-
-| Class   | Responsibility                                             |
-| ------- | ---------------------------------------------------------- |
-| `Map`   | Creates and manages the game boundaries                    |
-| `Snake` | Stores and controls the snake                              |
-| `Food`  | Generates valid food positions                             |
-| `Game`  | Controls the overall game loop and coordinates all objects |
-
----
-
-# 🔄 Game Loop
-
-The main gameplay is controlled by:
-
-```cpp
-while(!gameOver)
-{
-    draw();
-    input();
-
-    if(!snake.move(map))
-    {
-        gameOver = true;
-        break;
-    }
-
-    checkFood();
-
-    if(snake.hitSelf())
-    {
-        gameOver = true;
-        break;
-    }
-
-    Sleep(120);
-}
-```
-
-Each iteration performs the following operations:
-
-```text
-Draw
-  ↓
-Read Input
-  ↓
-Move Snake
-  ↓
-Check Food
-  ↓
-Check Collision
-  ↓
-Delay
-  ↓
-Repeat
-```
-
----
-
-# 💥 Collision Detection
-
-Two major types of collision are implemented.
-
-### Wall Collision
-
-The `Map` class determines whether a coordinate contains a wall:
-
-```cpp
-bool isWall(int x, int y)
-{
-    return tiles[y][x] == '#';
-}
-```
-
-The snake uses this information before moving.
-
-### Self Collision
-
-The snake checks whether its head overlaps with any body segment:
-
-```cpp
-bool hitSelf()
-{
-    for(int i = 1; i < body.size(); i++)
-    {
-        if(body[0] == body[i])
-            return true;
-    }
-
-    return false;
-}
-```
-
----
-
-# 🍎 Food System
-
-Food is randomly generated inside the playable area:
-
-```cpp
-x = rand() % (map.width - 2) + 1;
-y = rand() % (map.height - 2) + 1;
-```
-
-The position is repeatedly generated until it does not overlap with the snake.
-
-This prevents food from spawning directly on the snake.
-
----
-
-# 🖥️ Console Features
-
-The project uses Windows console functionality to improve the gameplay experience.
-
-### Hidden Cursor
-
-```cpp
-cursorInfo.bVisible = false;
-```
-
-### Cursor Positioning
-
-```cpp
-SetConsoleCursorPosition(console, position);
-```
-
-Instead of continuously clearing the terminal, the cursor is moved back to the top and the game board is redrawn.
-
-This creates a smoother console animation.
-
----
-
-# ▶️ How to Run
-
-### 1. Clone the repository
-
+#### Using Make:
 ```bash
-git clone <your-repository-url>
+# Build the game
+make
+
+# Run the game
+make run
+
+# Run the automated test suite
+make test
+
+# Build release executable
+make release
+
+# Clean build artifacts
+make clean
 ```
 
-### 2. Navigate into the project
-
+#### Direct G++ Compilation:
 ```bash
-cd snake-game
+# Compile the main game
+g++ -std=c++17 -Wall -Wextra main.cpp -o main.exe
+
+# Compile and run the automated regression tests
+g++ -std=c++17 -Wall -Wextra tests.cpp -o tests.exe
+./tests.exe
 ```
 
-### 3. Compile
+---
 
-Using G++:
+## 🧪 Verification & Testing Status
 
-```bash
-g++ main.cpp -o snake
-```
-
-### 4. Run
-
-```bash
-snake
-```
-
-> This project uses Windows-specific libraries such as `<conio.h>` and `<windows.h>`, so it is intended to run on Windows.
+| Environment / Check | Status | Verification Details |
+| :--- | :---: | :--- |
+| **Windows 11 x64 (Local)** | **VERIFIED** | Compiled with GCC 16.1.0 UCRT64 (`-std=c++17 -Wall -Wextra`). |
+| **Windows 10 x64** | **VERIFIED** | Binary linked to Universal CRT and Kernel32 without MinGW DLL dependencies. |
+| **Automated Test Suite** | **VERIFIED** | 267/267 assertions passed in [`tests.cpp`](file:///C:/Users/shaur/.gemini/antigravity/scratch/terminal_game/tests.cpp). |
+| **Resource Fallback** | **VERIFIED** | Verified launching from root `C:\` and with corrupted/missing `map.txt`. |
+| **CI Automation** | **CONFIGURED** | GitHub Actions workflow compiles and runs tests on push/PR (`windows-latest`). |
 
 ---
 
-# 🎮 Controls
+## 🎮 Controls Quick Reference
 
-| Key | Action                  |
-| --- | ----------------------- |
-| `W` | Move Up                 |
-| `A` | Move Left               |
-| `S` | Move Down               |
-| `D` | Move Right              |
-| `Q` | Quit                    |
-| `R` | Restart after Game Over |
-
----
-
-# 📚 Course Connection — UTA018
-
-This project was created as a practical application of the concepts studied in **UTA018 – Object Oriented Programming in C++**.
-
-Instead of treating OOP concepts as isolated theoretical topics, the project demonstrates how they can work together in a complete application.
-
-### Concepts applied
-
-* Classes and Objects
-* Constructors
-* Encapsulation
-* Member Functions
-* Object Composition
-* Object Interaction
-* References
-* `const` correctness
-* STL `vector`
-* `pair`
-* Control structures
-* Functions
-* Dynamic data structures
-* Random number generation
-
-The project demonstrates how a real program can be broken down into independent objects with clearly defined responsibilities.
+| Key | Action |
+| :---: | :--- |
+| `W` / `w` | Move Up |
+| `A` / `a` | Move Left |
+| `S` / `s` | Move Down |
+| `D` / `d` | Move Right |
+| `Q` / `q` | Quit Game (restores terminal state) |
+| `R` / `r` | Restart Game (from Game Over screen) |
 
 ---
 
-# 🚀 Future Improvements
+## 👨‍💻 Author & Academic Connection
 
-Possible extensions include:
-
-* Difficulty levels
-* Increasing snake speed
-* High-score system
-* Colored console graphics
-* Obstacles
-* Multiple food types
-* Pause functionality
-* Sound effects
-* Persistent leaderboard
-* Improved collision handling
-* Cross-platform terminal support
-
----
-
-# 👨‍💻 Author
-
-**Shaurya Malhotra**
-
-Computer Engineering Student
-Thapar Institute of Engineering and Technology
-
----
-
-## ⭐ Learning Objective
-
-The primary objective of this project was not just to build a game, but to understand how **Object-Oriented Programming can be used to structure and manage a real application**.
-
-Building the game provided a practical way to understand how individual classes can work together to create a complete system.
+* **Author:** Shaurya Malhotra
+* **Course:** UTA018 – Object Oriented Programming in C++
+* **Institution:** Thapar Institute of Engineering and Technology
